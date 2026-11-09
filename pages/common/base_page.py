@@ -1,7 +1,10 @@
-
 from pages.common.AccessCodePage import AccessCodePage
 from pages.QR_Management.login_page import Loginpage
 from utilities.readproperties import Readconfig
+
+import time
+import pytest
+from selenium.webdriver.support.wait import WebDriverWait
 
 class BaseTest:
     def login_and_access(self):
@@ -18,4 +21,15 @@ class BaseTest:
         lp.setUserName(Readconfig.getUsername())
         lp.setPassword(Readconfig.getUserpassword())
         lp.clickLogin()
+        time.sleep(1)
 
+        current_url = self.driver.current_url
+        time.sleep(1)
+
+        if "dashboard" in current_url:
+            self.logger.info("Login successful")
+            assert True
+        else:
+            self.logger.error("Login failed! Check username/password")
+            self.driver.save_screenshot(".\\screenshots\\test_login_failed.png")
+            assert False, "Login failed Check username/password"

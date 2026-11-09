@@ -5,24 +5,26 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from utilities.customlogger import LogGen
 
 class Roles_and_permission_filters:
-    Dashboard = (By.XPATH, "//span[@class='nav-name'][normalize-space()='Dashboard']")
+    Dashboard = (By.XPATH, "//body/div[@id='layout-wrapper']/div[@class='dashboard-main']/aside[@id='sidebaropen']/div[@id='navbar']/nav[@class='nav']/div/div[@class='nav-list sidebar-sec-middle px-2']/a[1]")
     user_management_opt=(By.XPATH,"//span[normalize-space()='User Management']")
     roles_and_permission=(By.XPATH,"//ul[@class='collapse-menu show']//span[@class='nav-sub-name'][normalize-space()='Roles & Permissions']")
     refresh_btn=(By.XPATH,"//button[contains(@class,'btn btn-outline-primary btn-icon waves-effect waves-light reload_btn uicust-active-color uicust-active-border refresh_Btn')]")
     search_name_field=(By.XPATH,"(//input[@id='search-vale'])[1]")
-    filter_calender=(By.XPATH,"//input[@id='datepicker-range']")
+    filter_calender=(By.XPATH,"//input[@class='form-control dash-filter-picker active form-control input']")
     select_status=(By.XPATH,"//select[@id='idStatus']")
-    actions_icon=(By.XPATH,"(//button[@type='button'])[12]")
-    inactive_opt=(By.XPATH,"//ul[@class='dropdown-menu dropdown-menu-end show']//a[@class='dropdown-item status-item-btn'][normalize-space()='Inactive']")
-    active_opt=(By.XPATH,"//ul[@class='dropdown-menu dropdown-menu-end show']//a[@class='dropdown-item status-item-btn'][normalize-space()='Active']")
-    yes_Iam_sure_btn=(By.XPATH,"//button[@class='btn btn-danger status-record']")
+    actions_icon=(By.XPATH,"(//button[@type='button'])[14]")
+    inactive_opt=(By.XPATH,"//ul[@class='dropdown-menu dropdown-menu-end dd_action show']//a[@class='dropdown-item status-item-btn icons-designed'][normalize-space()='Inactive']")
+    active_opt=(By.XPATH,"//a[normalize-space()='Activate']")
+    Yes_btn=(By.XPATH,"//button[normalize-space()='Yes']")
 
 
     def __init__(self, driver):
         self.driver = driver
         self.wait = WebDriverWait(driver, 10)
+        self.logger = LogGen.loggen()
 
     # ================= NAVIGATION =================
     def Click_Dashboard(self):
@@ -76,62 +78,82 @@ class Roles_and_permission_filters:
             ):
                 d.click()
                 break
-
-        # for d in self.driver.find_elements(By.XPATH, calendar_popup + "//span[contains(@class,'flatpickr-day')]"):
-        #     if d.text == str(int(start_day)) and "disabled" not in d.get_attribute("class"):
-        #         d.click()
-        #         break
-
-        time.sleep(2)
+        time.sleep(1)
 
         # END DATE
         if start_year != end_year or start_month_name != end_month_name:
             year_input.clear()
             year_input.send_keys(end_year)
             month_dropdown.select_by_visible_text(end_month_name)
-            time.sleep(2)
+            time.sleep(1)
 
         for d in self.driver.find_elements(By.XPATH, calendar_popup + "//span[contains(@class,'flatpickr-day')]"):
-            if d.text == str(int(end_day)) and "disabled" not in d.get_attribute("class"):
+
+            classes = d.get_attribute("class")
+
+            if (
+                    d.text == str(int(end_day))
+                    and "flatpickr-disabled" not in classes
+                    and "notAllowed" not in classes
+                    and "prevMonthDay" not in classes
+                    and "nextMonthDay" not in classes
+            ):
                 d.click()
                 break
 
-        time.sleep(1)
 
-    def search_product(self, search_name):
-        flag = False
+
+    def search_product(self, search_name, expected_status=None):
         try:
-            # Check if table has empty message
-            empty_cells = self.driver.find_elements(By.XPATH, "//table[@id='crudTable']//td[@class='dataTables_empty']")
+            empty_cells = self.driver.find_elements(
+                By.XPATH, "//table[@id='crudTable']//td[@class='dataTables_empty']"
+            )
             if empty_cells:
-                print("Table is empty")
+                self.logger.warning("Table is empty")
                 return False
 
-            # Get all rows in tbody
-            rows = self.driver.find_elements(By.XPATH, "//table[@id='crudTable']//tbody//tr")
+            rows = self.driver.find_elements(
+                By.XPATH, "//table[@id='crudTable']//tbody//tr"
+            )
 
             for r in range(1, len(rows) + 1):
-                # Get product_name and batch_no using full XPath
+
                 role_name = self.driver.find_element(
                     By.XPATH, f"//table[@id='crudTable']//tbody//tr[{r}]//td[2]"
                 ).text.strip()
-                # batch_no = self.driver.find_element(
-                #     By.XPATH, f"//table[@id='crudTable']//tbody//tr[{r}]//td[3]"
-                # ).text.strip()
                 time.sleep(1)
 
-                print(role_name)
-                if search_name == role_name:
+                active_status = self.driver.find_element(
+                    By.XPATH, f"//table[@id='crudTable']//tbody//tr[{r}]//td[5]"
+                ).text.strip()
+                time.sleep(1)
 
-                    flag = True
-                    break
+                if search_name == role_name:
+                    print(f"Data found: {role_name}")
+                    # Match found
+                    self.logger.info(f"Product found: {role_name}")
+                    if expected_status:
+                        if active_status == expected_status:
+                            print(f"Data found with matching status: {role_name} | {active_status}")
+                            self.logger.info(
+                                f"Status matched: {role_name} | {active_status}"
+                            )
+                            return True
+                        else:
+                            print(f"Status mismatch for {role_name}: expected {expected_status}, got {active_status}")
+                            self.logger.error(
+                                f"Status mismatch: {role_name} | Expected: {expected_status}, Got: {active_status}"
+                            )
+                            return False
+
+                    return True
+
+            self.logger.error(f"Product not found: {search_name}")
+            return False
 
         except Exception as e:
-            print(f"Exception in searching product: {e}")
-            flag = False
-
-        return flag
-
+            self.logger.error(f"Exception in search_product: {e}")
+            return False
 
     def Click_refresh_btn(self):
         self.driver.find_element(*self.refresh_btn).click()
@@ -149,14 +171,17 @@ class Roles_and_permission_filters:
     def Click_actions_icon(self):
         self.driver.find_element(*self.actions_icon).click()
 
-    def Click_inactive_opt(self):
-        self.driver.find_element(*self.inactive_opt).click()
-
     def Click_active_opt(self):
         self.driver.find_element(*self.active_opt).click()
 
-    def Click_yes_Iam_sure_btn(self):
-        self.driver.find_element(*self.yes_Iam_sure_btn).click()
+    def Click_yes_btn(self):
+        self.driver.find_element(*self.Yes_btn).click()
+
+    def Click_Inactive_opt(self):
+        self.driver.find_element(*self.inactive_opt).click()
+
+
+
 
 
 
