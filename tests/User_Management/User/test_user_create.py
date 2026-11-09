@@ -2,7 +2,6 @@
 import pytest
 import random
 import string
-
 from selenium.webdriver.common.by import By
 from pages.User_Management.Users.user_create import user_create
 from utilities.customlogger import LogGen
